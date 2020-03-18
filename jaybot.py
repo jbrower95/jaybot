@@ -27,6 +27,7 @@ class JayClient(discord.Client):
 
     OWNER = 'your.guy.jay'
     CHANNEL = 'jaybot-commands'
+    SILENT_ON_JOIN = True
 
     HELP = '''
     Welcome to JayBot! (tm)
@@ -87,49 +88,54 @@ class JayClient(discord.Client):
         await self.play_mp3(name)
 
     async def on_message(self, message):
-        print(message.channel.name)
-        if message.channel.name == JayClient.CHANNEL:
-            full_cmd = message.content.split()
-            if not full_cmd: return
-            cmd = full_cmd[0]
-            if cmd == "/roll":
-                parts = message.content.split(" ")
-                result = random.randint(1, 101)
-                await message.channel.send(f'Rolled {result}!')
-            if cmd == '/silence':
-                self.silenced = not self.silenced
-                await message.channel.send(f'{"Silenced!" if self.silenced else "Not silenced!"} To toggle, type /silence')
-            if cmd == '/ranked':
-                self.ranked = not self.ranked
-                await message.channel.send(f'Ranked mode: {"enabled" if self.ranked else "disabled"}')
-            if cmd == '/summon':
-                author = message.author.name
-                await self.attach_to_user(author)
-            if cmd == '/kill':
-                await self.kill_all()
-                self.load_data()
-            if cmd == '/insult':
-                if not self.guild:
-                    return
-                args = full_cmd[1:]
-                if not args:
-                    await message.channel.send(f'Error: Tag someone to insult them!')
-                person = full_cmd[1]
+        full_cmd = message.content.split()
+        if not full_cmd: return
+        cmd = full_cmd[0]
+        if cmd == "/roll":
+            parts = message.content.split(" ")
+            result = random.randint(1, 101)
+            await message.channel.send(f'Rolled {result}!')
+        if cmd == '/silence':
+            self.silenced = not self.silenced
+            await message.channel.send(f'{"Silenced!" if self.silenced else "Not silenced!"} To toggle, type /silence')
+        if cmd == '/ranked':
+            self.ranked = not self.ranked
+            await message.channel.send(f'Ranked mode: {"enabled" if self.ranked else "disabled"}')
+        if cmd == '/summon':
+            author = message.author.name
+            await self.attach_to_user(author)
+        if cmd == '/kill':
+            await self.kill_all()
+            self.load_data()
+        if cmd == '/insult':
+            if not self.guild:
+                return
+            args = full_cmd[1:]
+            if not args:
+                await message.channel.send(f'Error: Tag someone to insult them!')
+            person = full_cmd[1]
+            print(person)
+
+            if "!" in person:
                 person_id = int(person[3:-1])
-                target_member = None
-                # look up this person.
-                for member in self.guild.members:
-                    if member.id == person_id:
-                        # Found the member.
-                        target_member = member
-                        break
-                if not target_member:
-                    await message.channel.send(f'Error: Couldnt find that user!')
-                await self.speak_sync(random.choice(self.insults).format(member.name))
-
-
-            if message.content == '/help':
-                await message.channel.send(JayClient.HELP)
+            else:
+                person_id = int(person[2:-1])
+            print(f"Looking for {person} ({person_id})")
+            target_member = None
+            # look up this person.
+            for member in self.guild.members:
+                print(f"Looking at member: {member.name} ({member.id})")
+                if member.id == person_id:
+                    # Found the member.
+                    target_member = member
+                    print("Match!")
+                    break
+            if not target_member:
+                await message.channel.send(f'Error: Couldnt find that user!')
+                return
+            await self.speak_sync(random.choice(self.insults).format(member.name))
+        if message.content == '/help':
+            await message.channel.send(JayClient.HELP)
 
     async def kill_all(self):
         if self.connection:
@@ -154,7 +160,7 @@ class JayClient(discord.Client):
         self.channel = None
         self.silenced = True
         for guild in self.guilds:
-            print(f"Found guild: {guild.name}")
+            print(f"Found guild: {guild.name}\n")
             channels = guild.voice_channels
             for channel in channels:
                 members = channel.members
@@ -170,7 +176,8 @@ class JayClient(discord.Client):
                 break
         self.silenced = False
         self.sleep_nonblock(2)
-        await self.speak_sync(random.choice(self.greetings))
+        if not JayClient.SILENT_ON_JOIN:
+            await self.speak_sync(random.choice(self.greetings))
 
 
     async def on_ready(self):
